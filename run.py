@@ -1,8 +1,6 @@
 import pickle
-import time
 import numpy as np
 import argparse
-import re
 
 from envs import TradingEnv
 from agent import DQNAgent
@@ -21,16 +19,12 @@ if __name__ == '__main__':
   parser.add_argument('-u', '--utility', type=str, default='Profit', help="Funcion a utilizar")
   args = parser.parse_args()
 
-  maybe_make_dir('weights')
   maybe_make_dir('portfolio_val')
-
-  timestamp = time.strftime('%Y%m%d%H%M')
 
   data = np.around(get_data('data/daily_IBM.csv'))
   data_f = get_data_f()
   limit = 141
   train_data = data[:, :limit]
-  test_data = data[:, limit:]
   train_data_f = data_f[:limit]
 
   env = TradingEnv(train_data, train_data_f, args.initial_invest, utility_function=args.utility)
@@ -45,7 +39,6 @@ if __name__ == '__main__':
     state = env.reset()
     state = scaler.transform([state])
     for time in range(env.n_step):
-      print(time)
       action = agent.act(state)
       next_state, reward, done, info = env.step(action)
       next_state = scaler.transform([next_state])

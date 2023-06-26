@@ -1,6 +1,5 @@
 import gym
 from gym import spaces
-from gym.utils import seeding
 import numpy as np
 import itertools
 import statistics
@@ -76,6 +75,8 @@ class TradingEnv(gym.Env):
     B_t = ((1/(n-1)) * np.sum(sum_square[:-1]))
     delta_A = self.historic_return[-1] - A_t
     delta_B = pow(self.historic_return[-1], 2) - B_t
+    if pow(B_t - pow(A_t, 2), 3/2) == 0:
+      return 0
     D_t = ((B_t * delta_A) - (0.5*A_t*delta_B))/pow(B_t - pow(A_t, 2), 3/2)
     return D_t
 
@@ -93,10 +94,9 @@ class TradingEnv(gym.Env):
       if len(self.historic_return) > 1:
         if statistics.stdev(self.historic_return) == 0:
           sr_now = statistics.mean(self.historic_return) / 1
-          reward = sr_now
         else:
           sr_now = statistics.mean(self.historic_return) / statistics.stdev(self.historic_return)
-          reward = self.difSharpeRatio()
+        reward = self.difSharpeRatio()
         self.return_tot = sr_now
       else:
         reward = 0

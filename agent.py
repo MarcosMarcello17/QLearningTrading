@@ -10,11 +10,11 @@ class DQNAgent(object):
     self.state_size = state_size
     self.action_size = action_size
     self.memory = deque(maxlen=2000)
-    self.gamma = 0.6
+    self.gamma = 0.8
     self.epsilon = 1.0
     self.epsilon_min = 0.01
     self.epsilon_decay = 0.995
-    self.alpha = 0.1
+    self.alpha = 0.9
     self.model = mlp(state_size, action_size)
 
 
@@ -38,21 +38,17 @@ class DQNAgent(object):
     next_states = np.array([tup[3][0] for tup in minibatch])
     done = np.array([tup[4] for tup in minibatch])
 
+    #Q(a, s)
     target = rewards + self.gamma * np.amax(self.model.predict(next_states), axis=1)
     target[done] = rewards[done]
 
     target_old = (1- self.alpha) * (self.model.predict(states)[range(batch_size), actions])
+    
+    #Actualizacion del valor Q
     target_f = (target_old) + (self.alpha * target)
 
     self.model.fit(states, target_f, epochs=1, verbose=0)
-
     if self.epsilon > self.epsilon_min:
       self.epsilon *= self.epsilon_decay
-
-'''
-  def load(self, name):
-    self.model.load_weights(name)
-
-
-  def save(self, name):
-    self.model.save_weights(name)'''
+      self.alpha *= self.epsilon_decay
+      self.gamma *= self.epsilon_decay
