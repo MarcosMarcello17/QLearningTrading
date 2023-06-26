@@ -20,9 +20,8 @@ class TradingEnv(gym.Env):
     self.stock_free_price = None
     self.cash_in_hand = None
     self.val_act = None
-    self.transaction_cost = 0
+    self.transaction_cost = 0.005
     self.return_tot = None
-    self.wealth = None
     self.historic_return = None
     
     self.action_space = spaces.Discrete(3**self.n_stock)
@@ -35,13 +34,7 @@ class TradingEnv(gym.Env):
     cash_in_hand_range = [[0, init_invest * 2]]
     self.observation_space = spaces.MultiDiscrete(stock_range + price_range + cash_in_hand_range + stock_free_price_range)
 
-    self._seed()
     self._reset()
-
-
-  def _seed(self, seed=None):
-    self.np_random, seed = seeding.np_random(seed)
-    return [seed]
 
 
   def _reset(self):
@@ -52,7 +45,7 @@ class TradingEnv(gym.Env):
     self.cash_in_hand = self.init_invest
     self.return_tot = 0
     self.historic_return = []
-    self.wealth = self.init_invest
+    self._get_val()
     return self._get_obs()
   
   def _calcVariables(self, action):
@@ -74,23 +67,36 @@ class TradingEnv(gym.Env):
     return r_t, risk_free_variance, F_t_prev, owning_change
 
 
+  def difSharpeRatio(self):
+    n = len(self.historic_return)
+    A_t = (1/(n-1)) * np.sum(self.historic_return[:-1])
+    sum_square = []
+    for i in range(0, n):
+      sum_square.append(pow(self.historic_return[i],2))
+    B_t = ((1/(n-1)) * np.sum(sum_square[:-1]))
+    delta_A = self.historic_return[-1] - A_t
+    delta_B = pow(self.historic_return[-1], 2) - B_t
+    D_t = ((B_t * delta_A) - (0.5*A_t*delta_B))/pow(B_t - pow(A_t, 2), 3/2)
+    return D_t
+
   def _step(self, action):
     assert self.action_space.contains(action)
     r_t, r_ft, f_t_prev, ownChange = self._calcVariables(action)
     self._get_val()
     cur_val = self.val_act
-    return_t = r_ft + f_t_prev*(r_t - r_ft) - self.transaction_cost*ownChange
+    return_t = self.stock_owned *(r_ft + f_t_prev*(r_t - r_ft) - (self.transaction_cost * self.stock_price)*ownChange)
     self.historic_return.append(return_t[0])
     if self.utility == 'Profit':
-      reward = self.stock_owned * return_t[0]
+      reward = return_t[0]
       self.return_tot = self.return_tot + reward
     if self.utility == 'Sharpe':
       if len(self.historic_return) > 1:
         if statistics.stdev(self.historic_return) == 0:
           sr_now = statistics.mean(self.historic_return) / 1
+          reward = sr_now
         else:
           sr_now = statistics.mean(self.historic_return) / statistics.stdev(self.historic_return)
-        reward = sr_now - self.return_tot
+          reward = self.difSharpeRatio()
         self.return_tot = sr_now
       else:
         reward = 0
